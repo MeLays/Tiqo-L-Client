@@ -19,6 +19,17 @@ function getCookieValue(name){
 	if (match) return match[2];
 }
 
+function getUrlVars(){
+    var vars = {};
+    var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+    for(var i = 0; i < hashes.length; i++)
+    {
+        hash = hashes[i].split('=');
+        vars[hash[0]] = hash[1];
+    }
+    return vars;
+}
+
 function TiqoLClient (server_adress , port){
 	
 	this.server_adress = server_adress;
@@ -41,7 +52,7 @@ function TiqoLClient (server_adress , port){
 	console.log("   |  |   |  |' '-' |' '-' '       |  '--."); 
 	console.log("   `--'   `--' `-|  | `---'        `-----'"); 
 	console.log("                 `--'");                      
-	console.log("Started " + STATIC.getName() + " " + STATIC.getVersion());
+	console.log("Starting " + STATIC.getName() + " " + STATIC.getVersion());
 	
 	this.connect = function(){
 		console.log("Connecting to " + this.server_adress + ":" + this.port);
@@ -109,7 +120,7 @@ function PaketHandler(client){
 	}
 
 	this.updateReservedVariables = function(data , client){
-		data = data.replace(/{tyqoL-authKey}/g , client.secretKey);
+		data = data.replace(/{tiqoL-authKey}/g , client.secretKey);
 		return data;
 	}
 	
@@ -133,7 +144,7 @@ function EventHandler(client){
 		document.cookie = "last_session="+sessionkey;
 		document.cookie = "last_secret="+secretkey;
 		client.secretKey = secretkey;
-		client.socket.send(client.paketHandler.createPaket("c01" , secretkey , []));
+		client.socket.send(client.paketHandler.createPaket("c01" , secretkey , {parameters : getUrlVars()}));
 	}
 	
 	this.rebuildHTML = function(htmlarray){
@@ -142,7 +153,7 @@ function EventHandler(client){
 	}
 
 	this.updateHTML = function(array){
-		client.htmlBuilder.updateObject(array["objectID"] , array["newObject"] , array["keepOldChildren"]);
+		client.htmlBuilder.updateObject(array["objectID"] , array["newObject"] , array["keepOldChildren"][0]);
 	}
 
 	this.addHeaderTag = function(tag){
@@ -170,13 +181,34 @@ function EventHandler(client){
 
 var HTMLObject = class{
 	
-	constructor(client , type , id , tyqoltype){
+	constructor(client , type , id , tiqoltype){
 		this.client = client;
 		this.type = type;
 		this.id = id;
-		this.tyqoltype = tyqoltype;
+		this.tiqoltype = tiqoltype;
 		this.htmlelement = document.createElement(this.type);
 		this.children = [];
+
+		if (this.tiqoltype.startsWith("input_")){
+			if (this.tiqoltype == "input_checkbox"){
+				$(this.htmlelement).bind('change' , {client : this.client , id : this.id , element : this.htmlelement} , function(event){
+					var id = event.data.id;
+					var client = event.data.client;
+
+					client.socket.send(client.paketHandler.createPaket("c101" , client.secretKey , {clicked_id : id , checked: event.data.element.checked}));
+					console.log("Input occured. Sending packet to server. (c101)"); 
+				});
+			}
+			else if (this.tiqoltype == "input_text"){
+				$(this.htmlelement).bind('input' , {client : this.client , id : this.id , element : this.htmlelement} , function(event){
+					var id = event.data.id;
+					var client = event.data.client;
+		
+					client.socket.send(client.paketHandler.createPaket("c102" , client.secretKey , {clicked_id : id , text: event.data.element.value}));
+					console.log("Input occured. Sending packet to server. (c102)"); 
+				});
+			}
+		}
 	}
 	
 	getElement(){
@@ -277,8 +309,30 @@ function HTMLBuilder(client){
 		} 
 	}
 
+	this.searchObject = function(from , objectID){
+		for (var i = 0; i < from.getChildren().length; i++) {
+			if (objectID == from.getChildren()[i].id) return from.getChildren()[i];
+		} 
+		for (var i = 0; i < from.getChildren().length; i++) {
+			x = searchObject(from.getChildren()[i] , objectID)
+			if (x != null) return x;
+		} 
+	}
+
 	this.updateObject = function(objectID , replaceObjectArray , keepOldChildren){
+
 		replaceObject = createHTMLObject(replaceObjectArray , client);
+		oldObject = searchObject(topobject,objectID);
+
+		hadFocus = (oldObject.htmlelement == document.activeElement);
+		selectionStart = 0;
+		if (oldObject.type == replaceObject.type &&
+			oldObject.id == replaceObject.id){
+				if (oldObject.type == "input" && oldObject.tiqoltype == "input_text"){
+					selectionStart = oldObject.htmlelement.selectionStart;
+				}
+			}
+
 		body = topobject;
 		parent = searchParent(topobject,objectID);
 		old = direct_access[objectID];
@@ -289,6 +343,16 @@ function HTMLBuilder(client){
 		}
 
 		old_index = parent.getChildren().indexOf(old);
+
+		console.log(keepOldChildren);
+		if (!keepOldChildren){
+			old_children = old.children;
+			console.log(old_children);
+			for (var i = 0; i < old_children.length; i++) {
+				old.removeChild(old_children[old_children.length-1]);
+			}
+		}
+
 		parent.removeChild(old);
 
 		if (keepOldChildren){
@@ -302,6 +366,14 @@ function HTMLBuilder(client){
 
 		direct_access = {};
 		buildDirectAccess(topobject);
+
+		if (oldObject.type == replaceObject.type &&
+			oldObject.id == replaceObject.id){
+				if (oldObject.type == "input" && oldObject.tiqoltype == "input_text"){
+					if (hadFocus) replaceObject.htmlelement.focus();
+					replaceObject.htmlelement.selectionStart = selectionStart;
+				}	
+			}
 
 		console.log("Updated htmlobject " + old.id + " to " + replaceObject.id);
 
