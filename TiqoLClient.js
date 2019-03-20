@@ -148,7 +148,9 @@ function EventHandler(client){
 	}
 	
 	this.rebuildHTML = function(htmlarray){
+		var scroll = document.scrollingElement.scrollTop
 		client.htmlBuilder.buildByJSON(htmlarray);
+		$(window).scrollTop(scroll);
 		console.log("Rebuilding website");
 	}
 
@@ -321,6 +323,9 @@ function HTMLBuilder(client){
 
 	this.updateObject = function(objectID , replaceObjectArray , keepOldChildren){
 
+		var position = document.scrollingElement.scrollTop;
+		console.log(position);
+		
 		replaceObject = createHTMLObject(replaceObjectArray , client);
 		oldObject = searchObject(topobject,objectID);
 
@@ -344,10 +349,8 @@ function HTMLBuilder(client){
 
 		old_index = parent.getChildren().indexOf(old);
 
-		console.log(keepOldChildren);
 		if (!keepOldChildren){
 			old_children = old.children;
-			console.log(old_children);
 			for (var i = 0; i < old_children.length; i++) {
 				old.removeChild(old_children[old_children.length-1]);
 			}
@@ -377,6 +380,7 @@ function HTMLBuilder(client){
 
 		console.log("Updated htmlobject " + old.id + " to " + replaceObject.id);
 
+		$(window).scrollTop(position);
 	}
 
 	return this;
