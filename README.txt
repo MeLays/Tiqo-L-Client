@@ -1,0 +1,1 @@
+Before using edit the index.html's header tag to match the connection information of your Tiqo-L java server.
