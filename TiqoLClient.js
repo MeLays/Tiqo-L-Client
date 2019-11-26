@@ -3,7 +3,7 @@
  */
 function getData(){
 	this.getVersion = function(){
-		return "indev";
+		return "0.2";
 	}
 
 	this.getName = function(){
@@ -45,6 +45,8 @@ function TiqoLClient (server_adress , port){
 	
 	htmlBuilder = HTMLBuilder(this);
 	this.htmlBuilder = htmlBuilder;
+
+	tries_left = 1;
 	
 	console.log(",--------.,--.                     ,--.");   
 	console.log("'--.  .--'`--' ,---.  ,---. ,-----.|  |");    
@@ -56,27 +58,38 @@ function TiqoLClient (server_adress , port){
 	
 	this.connect = function(){
 		console.log("Connecting to " + this.server_adress + ":" + this.port);
-		socket = new WebSocket("ws://"+this.server_adress+":"+this.port+"/"); 
+		socket = new WebSocket("wss://"+this.server_adress+":"+this.port+"/"); 
 		this.socket = socket;
 		socket.onopen= function() {
 			console.log("Connected.");
 			
-			old_secret = getCookieValue("last_secret");
-			old_session = getCookieValue("last_session");
+			//old_secret = getValue("last_secret");
+			//old_session = getCookieValue("last_session");
+			
+			old_secret = window.localStorage.last_secret;
+			old_session = window.localStorage.last_session;
 						
 			if (old_secret && old_session){
 				console.log("Sending session-resume handshake paket (c00)");
-				socket.send(paketHandler.createPaket("c00" , null , {"resume_session" : true, "secret" : old_secret, "session" : old_session}));
+				socket.send(paketHandler.createPaket("c00" , null , {"resume_session" : true, "secret" : old_secret, "session" : old_session, "version" : STATIC.getVersion()}));
 			}else{
-				socket.send(paketHandler.createPaket("c00" , null , {"resume_session" : false}));
+				socket.send(paketHandler.createPaket("c00" , null , {"resume_session" : false , "version" : STATIC.getVersion()}));
 			}
 		};
 		socket.onmessage= function(s) {
 			paketHandler.handleRawInput(s.data);
 		};
 		socket.onclose = function(s) {
-			alert("Failed to connect to the Tiqo-L Server on "+ server_adress + ":" + port 
-			+ "\n" + s.code);
+			window.setTimeout(function(){
+				console.log("Connecting to " + server_adress + ":" + port);
+				socket = new WebSocket("wss://"+ server_adress+":"+port+"/"); 
+				socket.onclose = function(s){
+					window.location = "down.html";
+				}
+			},200);
+			tries_left -= 1;
+			console.log("Connection failed. Trying to connect again.");
+
 		}
 		return false;
 	}
@@ -108,6 +121,10 @@ function PaketHandler(client){
 		}
 		if (json["id"] == "s04"){
 			client.eventHandler.clearHeaderTags();
+		}
+		if (json["id"] == "s05"){
+			var id = json["data"]["object"]
+			client.eventHandler.requestedCanvasBase64(id);
 		}
 		if (json["id"] == "s100"){
 			var title = json["data"]["title"];
@@ -141,8 +158,10 @@ function EventHandler(client){
 	this.securityHandshake = function(secretkey , sessionkey){
 		console.log("Security Handshake Paket (s00) received.");
 		console.log("New session started: " + sessionkey);
-		document.cookie = "last_session="+sessionkey;
-		document.cookie = "last_secret="+secretkey;
+		//document.cookie = "last_session="+sessionkey;
+		//document.cookie = "last_secret="+secretkey;
+		localStorage.last_session = sessionkey;
+		localStorage.last_secret = secretkey;
 		client.secretKey = secretkey;
 		client.socket.send(client.paketHandler.createPaket("c01" , secretkey , {parameters : getUrlVars()}));
 	}
@@ -168,6 +187,13 @@ function EventHandler(client){
 				$(this).remove();
 			}
 		});
+	}
+
+	this.requestedCanvasBase64 = function(id){
+		base64 = client.htmlBuilder.getCanvasBase64(id);
+		if (base64 != null){
+			client.socket.send(client.paketHandler.createPaket("c103" , localStorage.last_secret , {object : id , img_base64 : base64}));
+		}
 	}
 
 	this.messageAlert = function(message){
@@ -227,6 +253,145 @@ var HTMLObject = class{
 	}
 	setAttributes(attributes){
 		$(this.htmlelement).attr(attributes);
+
+		if (this.htmlelement.getAttribute("__drawable") == "true"){
+			var canvas, ctx, flag = false,
+			prevX = 0,
+			currX = 0,
+			prevY = 0,
+			currY = 0,
+			dot_flag = false;
+
+			var x = "black",
+				y = 2;
+
+			canvas = this.htmlelement;
+			ctx = canvas.getContext("2d");
+			var w = canvas.width;
+			var h = canvas.height;
+
+			// Set up touch events for mobile, etc
+			canvas.addEventListener("touchstart", function (e) {
+			  var touch = e.touches[0];
+			  var mouseEvent = new MouseEvent("mousedown", {
+				clientX: touch.clientX,
+				clientY: touch.clientY
+			  });
+			  canvas.dispatchEvent(mouseEvent);
+			}, false);
+			canvas.addEventListener("touchend", function (e) {
+			  var mouseEvent = new MouseEvent("mouseup", {});
+			  canvas.dispatchEvent(mouseEvent);
+			}, false);
+			canvas.addEventListener("touchmove", function (e) {
+			  var touch = e.touches[0];
+			  var mouseEvent = new MouseEvent("mousemove", {
+				clientX: touch.clientX,
+				clientY: touch.clientY
+			  });
+			  canvas.dispatchEvent(mouseEvent);
+			}, false);
+
+			canvas.addEventListener("mousemove", function (e) {
+				findxy('move', e)
+			}, false);
+			canvas.addEventListener("mousedown", function (e) {
+				findxy('down', e)
+			}, false);
+			canvas.addEventListener("mouseup", function (e) {
+				findxy('up', e)
+			}, false);
+			canvas.addEventListener("mouseout", function (e) {
+				findxy('out', e)
+			}, false);
+			
+			function color(obj) {
+				switch (obj.id) {
+					case "green":
+						x = "green";
+						break;
+					case "blue":
+						x = "blue";
+						break;
+					case "red":
+						x = "red";
+						break;
+					case "yellow":
+						x = "yellow";
+						break;
+					case "orange":
+						x = "orange";
+						break;
+					case "black":
+						x = "black";
+						break;
+					case "white":
+						x = "white";
+						break;
+				}
+				if (x == "white") y = 14;
+				else y = 2;
+
+			}
+
+			function draw() {
+				ctx.beginPath();
+				ctx.moveTo(prevX, prevY);
+				ctx.lineTo(currX, currY);
+				ctx.strokeStyle = x;
+				ctx.lineWidth = y;
+				ctx.stroke();
+				ctx.closePath();
+			}
+
+			function erase() {
+				var m = confirm("Want to clear");
+				if (m) {
+					ctx.clearRect(0, 0, w, h);
+					document.getElementById("canvasimg").style.display = "none";
+				}
+			}
+
+			function save() {
+				document.getElementById("canvasimg").style.border = "2px solid";
+				var dataURL = canvas.toDataURL();
+				document.getElementById("canvasimg").src = dataURL;
+				document.getElementById("canvasimg").style.display = "inline";
+			}
+
+			function findxy(res, e) {
+				e.preventDefault();
+    			e.stopPropagation();
+				if (res == 'down') {
+					prevX = currX;
+					prevY = currY;
+						currX = (e.clientX - canvas.getBoundingClientRect().left) / (canvas.clientWidth / canvas.width);
+						currY = (e.clientY - canvas.getBoundingClientRect().top) / (canvas.clientHeight / canvas.height);
+
+					flag = true;
+					dot_flag = true;
+					if (dot_flag) {
+						ctx.beginPath();
+						ctx.fillStyle = x;
+						ctx.fillRect(currX, currY, 2, 2);
+						ctx.closePath();
+						dot_flag = false;
+					}
+				}
+				if (res == 'up' || res == "out") {
+					flag = false;
+				}
+				if (res == 'move') {
+					if (flag) {
+						prevX = currX;
+						prevY = currY;
+						currX = (e.clientX - canvas.getBoundingClientRect().left) / (canvas.clientWidth / canvas.width);
+						currY = (e.clientY - canvas.getBoundingClientRect().top) / (canvas.clientHeight / canvas.height);
+						draw();
+					}
+				}
+			}
+		}
 	}
 	addChild(htmlobject){
 		this.htmlelement.appendChild(htmlobject.getElement());
@@ -319,6 +484,21 @@ function HTMLBuilder(client){
 			x = searchObject(from.getChildren()[i] , objectID)
 			if (x != null) return x;
 		} 
+	}
+
+	this.getCanvasBase64 = function(objectID){
+		canvas = searchObject(topobject, objectID);
+		if (canvas == null){
+			console.log("Server requested base64 of non existing canvas.");
+			return;
+		}
+		if (canvas.tiqoltype != "canvas"){
+			console.log("Server requested base64 of non existing canvas.");
+			return;
+		}
+		element = canvas.getElement();
+		base64 = element.toDataURL();
+		return base64;
 	}
 
 	this.updateObject = function(objectID , replaceObjectArray , keepOldChildren){
