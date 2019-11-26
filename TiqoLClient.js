@@ -3,7 +3,7 @@
  */
 function getData(){
 	this.getVersion = function(){
-		return "0.2";
+		return "0.3";
 	}
 
 	this.getName = function(){
@@ -123,8 +123,13 @@ function PaketHandler(client){
 			client.eventHandler.clearHeaderTags();
 		}
 		if (json["id"] == "s05"){
-			var id = json["data"]["object"]
+			var id = json["data"]["object"];
 			client.eventHandler.requestedCanvasBase64(id);
+		}
+		if (json["id"] == "s06"){
+			var id = json["data"]["object"];
+			var data = json["data"]["custom_data"];
+			client.eventHandler.updateCustomData(id , data);
 		}
 		if (json["id"] == "s100"){
 			var title = json["data"]["title"];
@@ -133,6 +138,10 @@ function PaketHandler(client){
 		if (json["id"] == "s101"){
 			var message = json["data"]["message"];
 			client.eventHandler.messageAlert(message);
+		}
+		if (json["id"] == "s102"){
+			var rythm = json["data"]["rythm"];
+			client.eventHandler.vibrate(rythm);
 		}
 	}
 
@@ -196,6 +205,10 @@ function EventHandler(client){
 		}
 	}
 
+	this.updateCustomData = function(id, data){
+		client.htmlBuilder.updateCustomData(id , data)
+	}
+
 	this.messageAlert = function(message){
 		alert(message);
 	}
@@ -204,16 +217,21 @@ function EventHandler(client){
 		document.title = title;
 	}
 	
+	this.vibrate = function(rythm){
+		window.navigator.vibrate(rythm);
+	}
+
 	return this;
 }
 
 var HTMLObject = class{
 	
-	constructor(client , type , id , tiqoltype){
+	constructor(client , type , id , tiqoltype , customData){
 		this.client = client;
 		this.type = type;
 		this.id = id;
 		this.tiqoltype = tiqoltype;
+		this.customData = customData;
 		this.htmlelement = document.createElement(this.type);
 		this.children = [];
 
@@ -237,10 +255,117 @@ var HTMLObject = class{
 				});
 			}
 		}
+
+		this.checkCustomData();
+	}
+
+	checkCustomData(){
+		if (this.customData){
+			if (this.customData["drawable"]){
+				var canvas, ctx, flag = false,
+				prevX = 0,
+				currX = 0,
+				prevY = 0,
+				currY = 0,
+				dot_flag = false;
+
+				canvas = this.htmlelement;
+				ctx = canvas.getContext("2d");
+				var w = canvas.width;
+				var h = canvas.height;
+
+				// Set up touch events for mobile, etc
+				canvas.addEventListener("touchstart", function (e) {
+				  var touch = e.touches[0];
+				  var mouseEvent = new MouseEvent("mousedown", {
+					clientX: touch.clientX,
+					clientY: touch.clientY
+				  });
+				  canvas.dispatchEvent(mouseEvent);
+				}, false);
+				canvas.addEventListener("touchend", function (e) {
+				  var mouseEvent = new MouseEvent("mouseup", {});
+				  canvas.dispatchEvent(mouseEvent);
+				}, false);
+				canvas.addEventListener("touchmove", function (e) {
+				  var touch = e.touches[0];
+				  var mouseEvent = new MouseEvent("mousemove", {
+					clientX: touch.clientX,
+					clientY: touch.clientY
+				  });
+				  canvas.dispatchEvent(mouseEvent);
+				}, false);
+
+				var dataobject = this;
+
+				canvas.addEventListener("mousemove", function (e) {
+					findxy('move', e , dataobject)
+				}, false);
+				canvas.addEventListener("mousedown", function (e) {
+					findxy('down', e , dataobject)
+				}, false);
+				canvas.addEventListener("mouseup", function (e) {
+					findxy('up', e , dataobject)
+				}, false);
+				canvas.addEventListener("mouseout", function (e) {
+					findxy('out', e , dataobject)
+				}, false);
+
+				function draw(curr) {
+					ctx.beginPath();
+					ctx.moveTo(prevX, prevY);
+					ctx.lineTo(currX, currY);
+					ctx.strokeStyle = curr.customData["color"];
+					ctx.lineWidth = curr.customData["width"];
+					ctx.stroke();
+					ctx.closePath();
+				}
+
+				function findxy(res, e , curr) {
+					e.preventDefault();
+	    			e.stopPropagation();
+					if (res == 'down') {
+						prevX = currX;
+						prevY = currY;
+							currX = (e.clientX - canvas.getBoundingClientRect().left) / (canvas.clientWidth / canvas.width);
+							currY = (e.clientY - canvas.getBoundingClientRect().top) / (canvas.clientHeight / canvas.height);
+
+						flag = true;
+						dot_flag = true;
+						if (dot_flag) {
+							ctx.beginPath();
+							ctx.fillStyle = curr.customData["color"];;
+							ctx.fillRect(currX, currY, 2, 2);
+							ctx.closePath();
+							dot_flag = false;
+						}
+					}
+					if (res == 'up' || res == "out") {
+						flag = false;
+					}
+					if (res == 'move') {
+						if (flag) {
+							prevX = currX;
+							prevY = currY;
+							currX = (e.clientX - canvas.getBoundingClientRect().left) / (canvas.clientWidth / canvas.width);
+							currY = (e.clientY - canvas.getBoundingClientRect().top) / (canvas.clientHeight / canvas.height);
+							draw(curr);
+						}
+					}
+				}
+			}
+		}
 	}
 	
+	setCustomData(data){
+		this.customData = data;
+	}
+
 	getElement(){
 		return this.htmlelement;
+	}
+	getCustomData(){
+		return this.customData;
 	}
 	getType(){
 		return this.type;
@@ -253,145 +378,6 @@ var HTMLObject = class{
 	}
 	setAttributes(attributes){
 		$(this.htmlelement).attr(attributes);
-
-		if (this.htmlelement.getAttribute("__drawable") == "true"){
-			var canvas, ctx, flag = false,
-			prevX = 0,
-			currX = 0,
-			prevY = 0,
-			currY = 0,
-			dot_flag = false;
-
-			var x = "black",
-				y = 2;
-
-			canvas = this.htmlelement;
-			ctx = canvas.getContext("2d");
-			var w = canvas.width;
-			var h = canvas.height;
-
-			// Set up touch events for mobile, etc
-			canvas.addEventListener("touchstart", function (e) {
-			  var touch = e.touches[0];
-			  var mouseEvent = new MouseEvent("mousedown", {
-				clientX: touch.clientX,
-				clientY: touch.clientY
-			  });
-			  canvas.dispatchEvent(mouseEvent);
-			}, false);
-			canvas.addEventListener("touchend", function (e) {
-			  var mouseEvent = new MouseEvent("mouseup", {});
-			  canvas.dispatchEvent(mouseEvent);
-			}, false);
-			canvas.addEventListener("touchmove", function (e) {
-			  var touch = e.touches[0];
-			  var mouseEvent = new MouseEvent("mousemove", {
-				clientX: touch.clientX,
-				clientY: touch.clientY
-			  });
-			  canvas.dispatchEvent(mouseEvent);
-			}, false);
-
-			canvas.addEventListener("mousemove", function (e) {
-				findxy('move', e)
-			}, false);
-			canvas.addEventListener("mousedown", function (e) {
-				findxy('down', e)
-			}, false);
-			canvas.addEventListener("mouseup", function (e) {
-				findxy('up', e)
-			}, false);
-			canvas.addEventListener("mouseout", function (e) {
-				findxy('out', e)
-			}, false);
-			
-			function color(obj) {
-				switch (obj.id) {
-					case "green":
-						x = "green";
-						break;
-					case "blue":
-						x = "blue";
-						break;
-					case "red":
-						x = "red";
-						break;
-					case "yellow":
-						x = "yellow";
-						break;
-					case "orange":
-						x = "orange";
-						break;
-					case "black":
-						x = "black";
-						break;
-					case "white":
-						x = "white";
-						break;
-				}
-				if (x == "white") y = 14;
-				else y = 2;
-
-			}
-
-			function draw() {
-				ctx.beginPath();
-				ctx.moveTo(prevX, prevY);
-				ctx.lineTo(currX, currY);
-				ctx.strokeStyle = x;
-				ctx.lineWidth = y;
-				ctx.stroke();
-				ctx.closePath();
-			}
-
-			function erase() {
-				var m = confirm("Want to clear");
-				if (m) {
-					ctx.clearRect(0, 0, w, h);
-					document.getElementById("canvasimg").style.display = "none";
-				}
-			}
-
-			function save() {
-				document.getElementById("canvasimg").style.border = "2px solid";
-				var dataURL = canvas.toDataURL();
-				document.getElementById("canvasimg").src = dataURL;
-				document.getElementById("canvasimg").style.display = "inline";
-			}
-
-			function findxy(res, e) {
-				e.preventDefault();
-    			e.stopPropagation();
-				if (res == 'down') {
-					prevX = currX;
-					prevY = currY;
-						currX = (e.clientX - canvas.getBoundingClientRect().left) / (canvas.clientWidth / canvas.width);
-						currY = (e.clientY - canvas.getBoundingClientRect().top) / (canvas.clientHeight / canvas.height);
-
-					flag = true;
-					dot_flag = true;
-					if (dot_flag) {
-						ctx.beginPath();
-						ctx.fillStyle = x;
-						ctx.fillRect(currX, currY, 2, 2);
-						ctx.closePath();
-						dot_flag = false;
-					}
-				}
-				if (res == 'up' || res == "out") {
-					flag = false;
-				}
-				if (res == 'move') {
-					if (flag) {
-						prevX = currX;
-						prevY = currY;
-						currX = (e.clientX - canvas.getBoundingClientRect().left) / (canvas.clientWidth / canvas.width);
-						currY = (e.clientY - canvas.getBoundingClientRect().top) / (canvas.clientHeight / canvas.height);
-						draw();
-					}
-				}
-			}
-		}
 	}
 	addChild(htmlobject){
 		this.htmlelement.appendChild(htmlobject.getElement());
@@ -424,7 +410,7 @@ var HTMLObject = class{
 }
 
 function createHTMLObject(array , client){
-	var htmlobject = new HTMLObject(client , array["type"] , array["id"] , array["tiqoL-type"]);
+	var htmlobject = new HTMLObject(client , array["type"] , array["id"] , array["tiqoL-type"] , array["customData"]);
 	htmlobject.setInsideText(array["insideText"]);
 	if ("css" in array){
 		htmlobject.setCSS(array["css"]);
@@ -499,6 +485,13 @@ function HTMLBuilder(client){
 		element = canvas.getElement();
 		base64 = element.toDataURL();
 		return base64;
+	}
+
+	this.updateCustomData = function(objectID , customData){
+		object = searchObject(topobject,objectID);
+		object.setCustomData(customData);
+		console.log("Custom data of object " + objectID + " has been changed.");
+		console.log(object);
 	}
 
 	this.updateObject = function(objectID , replaceObjectArray , keepOldChildren){
