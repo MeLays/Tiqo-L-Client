@@ -3,7 +3,7 @@
  */
 function getData(){
 	this.getVersion = function(){
-		return "0.3";
+		return "0.4";
 	}
 
 	this.getName = function(){
@@ -273,6 +273,14 @@ var HTMLObject = class{
 				ctx = canvas.getContext("2d");
 				var w = canvas.width;
 				var h = canvas.height;
+
+				if (this.customData["image"]){
+					var image = new Image();
+					image.onload = function() {
+					  ctx.drawImage(image, 0, 0);
+					};
+					image.src = this.customData["image"];
+				}
 
 				// Set up touch events for mobile, etc
 				canvas.addEventListener("touchstart", function (e) {
