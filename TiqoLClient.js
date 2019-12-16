@@ -80,16 +80,7 @@ function TiqoLClient (server_adress , port){
 			paketHandler.handleRawInput(s.data);
 		};
 		socket.onclose = function(s) {
-			window.setTimeout(function(){
-				console.log("Connecting to " + server_adress + ":" + port);
-				socket = new WebSocket("wss://"+ server_adress+":"+port+"/"); 
-				socket.onclose = function(s){
-					window.location = "down.html";
-				}
-			},200);
-			tries_left -= 1;
-			console.log("Connection failed. Trying to connect again.");
-
+			window.location = "down.html";
 		}
 		return false;
 	}
