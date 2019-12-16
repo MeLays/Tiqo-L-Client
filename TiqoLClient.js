@@ -3,7 +3,7 @@
  */
 function getData(){
 	this.getVersion = function(){
-		return "0.4";
+		return "0.5";
 	}
 
 	this.getName = function(){
@@ -131,6 +131,14 @@ function PaketHandler(client){
 			var data = json["data"]["custom_data"];
 			client.eventHandler.updateCustomData(id , data);
 		}
+		if (json["id"] == "s07"){
+			var id = json["data"]["object"];
+			client.eventHandler.removeObject(id);
+		}
+		if (json["id"] == "s08"){
+			var array = json["data"];
+			client.eventHandler.addObjectToBody(array);
+		}
 		if (json["id"] == "s100"){
 			var title = json["data"]["title"];
 			client.eventHandler.setTitle(title);
@@ -203,6 +211,14 @@ function EventHandler(client){
 		if (base64 != null){
 			client.socket.send(client.paketHandler.createPaket("c103" , localStorage.last_secret , {object : id , img_base64 : base64}));
 		}
+	}
+
+	this.removeObject = function(id){
+		client.htmlBuilder.removeObject(id);
+	}
+
+	this.addObjectToBody = function(array){
+		client.htmlBuilder.addObjectToBody(array);
 	}
 
 	this.updateCustomData = function(id, data){
@@ -500,6 +516,19 @@ function HTMLBuilder(client){
 		object.setCustomData(customData);
 		console.log("Custom data of object " + objectID + " has been changed.");
 		console.log(object);
+	}
+
+	this.removeObject = function(id){
+		parent = searchParent(topobject,id);
+		parent.removeChild(searchObject(topobject,id))
+		console.log("HTML Object " + id + " removed by server")
+	}
+
+	this.addObjectToBody = function(array){
+		parent = topobject; //parent = body
+		addObject = createHTMLObject(array , client);
+		parent.addChild(addObject);
+		console.log("Appended new HTMLObject to HTML Body");
 	}
 
 	this.updateObject = function(objectID , replaceObjectArray , keepOldChildren){
