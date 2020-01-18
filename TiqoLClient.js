@@ -42,6 +42,7 @@ function TiqoLClient (server_adress , port){
 	this.port = port;
 	
 	secretKey = null;
+	this.secretKey = secretKey;
 
 	paketHandler = PaketHandler(this);
 	this.paketHandler = paketHandler;
@@ -65,7 +66,7 @@ function TiqoLClient (server_adress , port){
 		
 	//Send custom messages
 	this.sendCustomPaket = function(json){
-		custompaket = this.paketHandler.createPaket("c104" , secretKey , json);
+		custompaket = this.paketHandler.createPaket("c104" , this.secretKey , json);
 		console.log("Sending custom paket " + custompaket);
 		socket.send(custompaket);
 	}
