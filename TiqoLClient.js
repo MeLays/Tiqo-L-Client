@@ -4,12 +4,12 @@
 iNoBounce.disable()
 
 /**
- * TiqoL Client JavaScript 0.5 version by m-3.me
+ * TiqoL Client JavaScript 0.6 version by m-3.me
  */
 
 function getData(){
 	this.getVersion = function(){
-		return "0.5";
+		return "0.6";
 	}
 
 	this.getName = function(){
@@ -268,6 +268,15 @@ var HTMLObject = class{
 				});
 			}
 			else if (this.tiqoltype == "input_text"){
+				$(this.htmlelement).bind('input' , {client : this.client , id : this.id , element : this.htmlelement} , function(event){
+					var id = event.data.id;
+					var client = event.data.client;
+		
+					client.socket.send(client.paketHandler.createPaket("c102" , client.secretKey , {clicked_id : id , text: event.data.element.value}));
+					console.log("Input occured. Sending packet to server. (c102)"); 
+				});
+			}
+			else if (this.tiqoltype == "input_multiline_text"){
 				$(this.htmlelement).bind('input' , {client : this.client , id : this.id , element : this.htmlelement} , function(event){
 					var id = event.data.id;
 					var client = event.data.client;
@@ -555,6 +564,9 @@ function HTMLBuilder(client){
 				if (oldObject.type == "input" && oldObject.tiqoltype == "input_text"){
 					selectionStart = oldObject.htmlelement.selectionStart;
 				}
+				if (oldObject.type == "textarea" && oldObject.tiqoltype == "input_multiline_text"){
+					selectionStart = oldObject.htmlelement.selectionStart;
+				}
 			}
 
 		body = topobject;
@@ -592,6 +604,10 @@ function HTMLBuilder(client){
 		if (oldObject.type == replaceObject.type &&
 			oldObject.id == replaceObject.id){
 				if (oldObject.type == "input" && oldObject.tiqoltype == "input_text"){
+					if (hadFocus) replaceObject.htmlelement.focus();
+					replaceObject.htmlelement.selectionStart = selectionStart;
+				}	
+				if (oldObject.type == "textarea" && oldObject.tiqoltype == "input_multiline_text"){
 					if (hadFocus) replaceObject.htmlelement.focus();
 					replaceObject.htmlelement.selectionStart = selectionStart;
 				}	
