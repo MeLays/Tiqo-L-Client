@@ -4,12 +4,12 @@
 iNoBounce.disable()
 
 /**
- * TiqoL Client JavaScript 0.6 version by m-3.me
+ * TiqoL Client JavaScript 0.8 version by m-3.me
  */
 
 function getData(){
 	this.getVersion = function(){
-		return "0.6";
+		return "0.8";
 	}
 
 	this.getName = function(){
@@ -36,7 +36,7 @@ function getUrlVars(){
     return vars;
 }
 
-function TiqoLClient (server_adress , port){
+function TiqoLClient (server_adress , port , no_ssl = false){
 	
 	this.server_adress = server_adress;
 	this.port = port;
@@ -73,7 +73,14 @@ function TiqoLClient (server_adress , port){
 	
 	this.connect = function(){
 		console.log("Connecting to " + this.server_adress + ":" + this.port);
-		socket = new WebSocket("wss://"+this.server_adress+":"+this.port+"/"); 
+		
+		if (no_ssl){
+			socket = new WebSocket("ws://"+this.server_adress+":"+this.port+"/"); 
+		}
+		else{
+			socket = new WebSocket("wss://"+this.server_adress+":"+this.port+"/"); 
+		}
+		
 		this.socket = socket;
 		socket.onopen= function() {
 			console.log("Connected.");
@@ -547,6 +554,7 @@ function HTMLBuilder(client){
 		parent = topobject; //parent = body
 		addObject = createHTMLObject(array , client);
 		parent.addChild(addObject);
+		buildDirectAccess(topobject);
 		console.log("Appended new HTMLObject to HTML Body");
 	}
 
