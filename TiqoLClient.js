@@ -300,6 +300,12 @@ var HTMLObject = class{
 	checkCustomData(){
 		if (this.customData){
 			if (this.customData["drawable"]){
+				
+				var onlyDiff = false;
+				if (this.customData["drawable_onlydiff"]){
+					onlyDiff = true;
+				}
+				
 				var canvas, ctx, flag = false,
 				prevX = 0,
 				currX = 0,
@@ -454,6 +460,13 @@ var HTMLObject = class{
 			client.socket.send(client.paketHandler.createPaket("c100" , client.secretKey , {clicked_id : id , x : event.pageX - offset.left ,
 			y : event.pageY - offset.top , pageX : event.pageX , pageY : event.pageY}));
 
+		});
+		$(this.htmlelement).bind('contextmenu', function(e){
+			e.preventDefault();
+			var id = event.data.id;
+			var client = event.data.client;
+			client.socket.send(client.paketHandler.createPaket("c105" , client.secretKey , {clicked_id : id}));
+			return false;
 		});
 	}
 }
