@@ -461,8 +461,8 @@ var HTMLObject = class{
 			y : event.pageY - offset.top , pageX : event.pageX , pageY : event.pageY}));
 
 		});
-		$(this.htmlelement).bind('contextmenu', function(e){
-			e.preventDefault();
+		$(this.htmlelement).bind('contextmenu', {client : this.client , id : this.id} , function(event){
+			event.preventDefault();
 			var id = event.data.id;
 			var client = event.data.client;
 			client.socket.send(client.paketHandler.createPaket("c105" , client.secretKey , {clicked_id : id}));
