@@ -153,8 +153,8 @@ function PaketHandler(client){
 			client.eventHandler.addObjectToBody(array);
 		}
 		if (json["id"] == "s09"){
-			var objectToPut = json["addToObjectID"];
-			var object = json["object"];
+			var objectToPut = json["data"]["addToObjectID"];
+			var object = json["data"]["object"];
 			client.eventHandler.addChildToObject(objectToPut, object);
 		}
 		if (json["id"] == "s100"){
@@ -573,6 +573,7 @@ function HTMLBuilder(client){
 	}
 	
 	this.addChildToObject = function(objectToPut, object){
+		console.log(objectToPut);
 		parent = searchObject(topobject , objectToPut);
 		parent.addChild(createHTMLObject(object , client));
 		buildDirectAccess(topobject);
