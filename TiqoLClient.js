@@ -9,7 +9,7 @@ iNoBounce.disable()
 
 function getData(){
 	this.getVersion = function(){
-		return "0.8";
+		return "0.9";
 	}
 
 	this.getName = function(){
@@ -152,6 +152,11 @@ function PaketHandler(client){
 			var array = json["data"];
 			client.eventHandler.addObjectToBody(array);
 		}
+		if (json["id"] == "s09"){
+			var objectToPut = json["addToObjectID"];
+			var object = json["object"];
+			client.eventHandler.addChildToObject(objectToPut, object);
+		}
 		if (json["id"] == "s100"){
 			var title = json["data"]["title"];
 			client.eventHandler.setTitle(title);
@@ -232,6 +237,10 @@ function EventHandler(client){
 
 	this.addObjectToBody = function(array){
 		client.htmlBuilder.addObjectToBody(array);
+	}
+	
+	this.addChildToObject = function(objectToPut, object){
+		client.htmlBuilder.addChildToObject(objectToPut, object);
 	}
 
 	this.updateCustomData = function(id, data){
@@ -561,6 +570,13 @@ function HTMLBuilder(client){
 		parent = searchParent(topobject,id);
 		parent.removeChild(searchObject(topobject,id))
 		console.log("HTML Object " + id + "removed by server")
+	}
+	
+	this.addChildToObject = function(objectToPut, object){
+		parent = searchObject(topobject , objectToPut);
+		parent.addChild(createHTMLObject(object , client));
+		buildDirectAccess(topobject);
+		console.log("Added a child to object '"+objectToPut+"'")
 	}
 
 	this.addObjectToBody = function(array){
