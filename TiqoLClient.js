@@ -169,6 +169,11 @@ function PaketHandler(client){
 			var rythm = json["data"]["rythm"];
 			client.eventHandler.vibrate(rythm);
 		}
+		if (json["id"] == "s103"){
+			var audio = json["data"]["audiosrc"];
+			var volume = json["data"]["volume"];
+			client.eventHandler.playAudio(audio ,volume);
+		}
 	}
 
 	this.updateReservedVariables = function(data , client){
@@ -257,6 +262,12 @@ function EventHandler(client){
 	
 	this.vibrate = function(rythm){
 		window.navigator.vibrate(rythm);
+	}
+	
+	this.playAudio = function(audiosrc , volume = 1.0){
+		var audio = new Audio(audiosrc);
+		audio.volume = volume;
+		audio.play();
 	}
 
 	return this;
