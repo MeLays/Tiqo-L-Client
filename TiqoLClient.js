@@ -318,6 +318,12 @@ var HTMLObject = class{
 					client.socket.send(client.paketHandler.createPaket("c102" , client.secretKey , {clicked_id : id , text: event.data.element.value}));
 					console.log("Input occured. Sending packet to server. (c102)"); 
 				});
+				$(this.htmlelement).on('keyup', {client : this.client , id : this.id , element : this.htmlelement}, function (event) {
+					if (event.keyCode === 13) {
+						//Submit event (clicked_id , text)
+						client.socket.send(client.paketHandler.createPaket("c107" , client.secretKey , {clicked_id : id , text: event.data.element.value}));
+					}
+				});
 			}
 			else if (this.tiqoltype == "input_multiline_text"){
 				$(this.htmlelement).bind('input' , {client : this.client , id : this.id , element : this.htmlelement} , function(event){
@@ -421,7 +427,7 @@ var HTMLObject = class{
 					
 					var color = curr.customData["color"];
 					var width = curr.customData["width"];
-					var paket = client.paketHandler.createPaket("c106" , client.secretKey , {"path" : path_send , "color" : color , "width" : width});
+					var paket = client.paketHandler.createPaket("c106" , client.secretKey , {"object" : curr.id, "path" : path_send , "color" : color , "width" : width});
 					client.socket.send(paket);
 												
 					//Reset path
@@ -704,19 +710,6 @@ function HTMLBuilder(client){
 			setTimeout(run , point[2] , point , pointbefore);
 			pointbefore = point;
 		}
-		
-		/*ctx.beginPath();
-		ctx.lineWidth = width.toString();
-		ctx.strokeStyle = color.toString();
-		ctx.moveTo(path[0][0] , path[0][1]);
-		ctx.lineTo(path[0][0] , path[0][1]);
-		for (pointindex in path) {
-			point = path[pointindex];
-			ctx.lineTo(point[0] , point[1]);
-			ctx.moveTo(point[0] , point[1]);
-		}
-		ctx.closePath();
-		ctx.stroke();*/
 	}
 
 	this.updateObject = function(objectID , replaceObjectArray , keepOldChildren){
