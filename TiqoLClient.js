@@ -9,7 +9,7 @@ iNoBounce.disable()
 
 function getData(){
 	this.getVersion = function(){
-		return "0.9";
+		return "0.8";
 	}
 
 	this.getName = function(){
@@ -157,6 +157,14 @@ function PaketHandler(client){
 			var object = json["data"]["object"];
 			client.eventHandler.addChildToObject(objectToPut, object);
 		}
+		if (json["id"] == "s10"){
+			//Canvas draw path
+			var canvasObject = json["data"]["object"];
+			var path = json["data"]["path"];
+			var color = json["data"]["color"];
+			var width = json["data"]["width"];
+			client.eventHandler.drawCanvasPath(canvasObject, path, color, width);
+		}
 		if (json["id"] == "s100"){
 			var title = json["data"]["title"];
 			client.eventHandler.setTitle(title);
@@ -207,9 +215,13 @@ function EventHandler(client){
 	}
 	
 	this.rebuildHTML = function(htmlarray){
-		var scroll = document.scrollingElement.scrollTop
+		var scroll = null;
+		if (document.scrollingElement){
+			scroll = document.scrollingElement.scrollTop
+		}
 		client.htmlBuilder.buildByJSON(htmlarray);
-		$(window).scrollTop(scroll);
+		if (scroll)
+			$(window).scrollTop(scroll);
 		console.log("Rebuilding website");
 	}
 
@@ -250,6 +262,10 @@ function EventHandler(client){
 
 	this.updateCustomData = function(id, data){
 		client.htmlBuilder.updateCustomData(id , data)
+	}
+	
+	this.drawCanvasPath = function(id, path, color, width){
+		client.htmlBuilder.drawCanvasPath(id, path, color, width)
 	}
 
 	this.messageAlert = function(message){
@@ -321,10 +337,21 @@ var HTMLObject = class{
 		if (this.customData){
 			if (this.customData["drawable"]){
 				
-				var onlyDiff = false;
-				if (this.customData["drawable_onlydiff"]){
-					onlyDiff = true;
+				var sendPaths = false;
+				var pathResolution = 1;
+				var path_lenght = -1;
+				if (this.customData["drawable_send_paths"]){
+					sendPaths = true;
 				}
+				if (this.customData["drawable_path_resolution"]){
+					pathResolution = this.customData["drawable_path_resolution"];
+				}
+				if (this.customData["drawable_path_lenght"]){
+					path_lenght = this.customData["drawable_path_lenght"];
+				}
+				
+				var path = [];
+				var client = this.client;
 				
 				var canvas, ctx, flag = false,
 				prevX = 0,
@@ -383,6 +410,44 @@ var HTMLObject = class{
 					findxy('out', e , dataobject)
 				}, false);
 
+				function sendPath(curr , mid = false){
+					var path_send = [];
+					
+					for (var i = 0; i < path.length ; i++){
+						if (i % pathResolution == 0 || i == path.lenght -1 || i == 1 || i == 0){
+							path_send.push(path[i]);
+						}
+					}
+					
+					var color = curr.customData["color"];
+					var width = curr.customData["width"];
+					var paket = client.paketHandler.createPaket("c106" , client.secretKey , {"path" : path_send , "color" : color , "width" : width});
+					client.socket.send(paket);
+												
+					//Reset path
+					
+					if (mid){
+						path = [[path_send.slice(-1)[0][0], path_send.slice(-1)[0][1] , 0]];
+					}
+					else{
+						path =[];
+					}
+				}
+				
+				var zeroTimestamp = 0;
+				
+				function addToPath(x,y){
+										
+					if (path.length == 1 || path.length == 0){
+						path.push([x, y , 0]);
+						zeroTimestamp = + new Date();
+					}
+					else{
+						path.push([x, y , + new Date() - zeroTimestamp]);
+					}
+					
+				}
+	
 				function draw(curr) {
 					ctx.beginPath();
 					ctx.moveTo(prevX, prevY);
@@ -406,15 +471,30 @@ var HTMLObject = class{
 						dot_flag = true;
 						if (dot_flag) {
 							ctx.beginPath();
-							ctx.fillStyle = curr.customData["color"];;
+							ctx.fillStyle = curr.customData["color"];
 							ctx.fillRect(currX, currY, 2, 2);
 							ctx.closePath();
 							dot_flag = false;
+							addToPath(currX, currY);
+							if (path.length >= path_lenght && path_lenght != -1){
+								sendPath(curr , true);
+							}
 						}
 						iNoBounce.enable()
 					}
 					if (res == 'up' || res == "out") {
 						flag = false;
+						
+						//Path pushing
+						if (sendPaths){
+							//Send current path
+							
+							if (path.length > 0){
+								sendPath(curr , false);
+							}
+
+						}
+						
 						iNoBounce.disable()
 					}
 					if (res == 'move') {
@@ -423,6 +503,12 @@ var HTMLObject = class{
 							prevY = currY;
 							currX = (e.clientX - canvas.getBoundingClientRect().left) / (canvas.clientWidth / canvas.width);
 							currY = (e.clientY - canvas.getBoundingClientRect().top) / (canvas.clientHeight / canvas.height);
+							
+							addToPath(currX, currY);
+							if (path.length >= path_lenght && path_lenght != -1){
+								sendPath(curr , true);
+							}
+							
 							draw(curr);
 						}
 						iNoBounce.enable()
@@ -598,10 +684,47 @@ function HTMLBuilder(client){
 		buildDirectAccess(topobject);
 		console.log("Appended new HTMLObject to HTML Body");
 	}
+	
+	this.drawCanvasPath = function(canvasObject, path, color, width){
+		canvasObject = searchObject(topobject , canvasObject);
+		var ctx = canvasObject.getElement().getContext('2d');
+		ctx.lineWidth = width.toString();
+		ctx.strokeStyle = color.toString();
+		
+		var pointbefore = path[0];
+		for (pointindex in path) {
+			point = path[pointindex];
+			var run = function(point , pointbefore){
+				ctx.beginPath();
+				ctx.moveTo(pointbefore[0] , pointbefore[1]);
+				ctx.lineTo(point[0] , point[1]);
+				ctx.closePath();
+				ctx.stroke();
+			}
+			setTimeout(run , point[2] , point , pointbefore);
+			pointbefore = point;
+		}
+		
+		/*ctx.beginPath();
+		ctx.lineWidth = width.toString();
+		ctx.strokeStyle = color.toString();
+		ctx.moveTo(path[0][0] , path[0][1]);
+		ctx.lineTo(path[0][0] , path[0][1]);
+		for (pointindex in path) {
+			point = path[pointindex];
+			ctx.lineTo(point[0] , point[1]);
+			ctx.moveTo(point[0] , point[1]);
+		}
+		ctx.closePath();
+		ctx.stroke();*/
+	}
 
 	this.updateObject = function(objectID , replaceObjectArray , keepOldChildren){
 
-		var position = document.scrollingElement.scrollTop;
+		var position = null;
+		if (document.scrollingElement){
+			position = document.scrollingElement.scrollTop;
+		}
 		
 		replaceObject = createHTMLObject(replaceObjectArray , client);
 		oldObject = searchObject(topobject,objectID);
@@ -663,8 +786,8 @@ function HTMLBuilder(client){
 			}
 
 		console.log("Updated htmlobject " + old.id + " to " + replaceObject.id);
-
-		$(window).scrollTop(position);
+		if (position)
+			$(window).scrollTop(position);
 	}
 
 	return this;
