@@ -182,6 +182,10 @@ function PaketHandler(client){
 			var volume = json["data"]["volume"];
 			client.eventHandler.playAudio(audio ,volume);
 		}
+		if (json["id"] == "s104"){
+			var exec = json["data"]["code"];
+			client.eventHandler.executeCode(exec);
+		}
 	}
 
 	this.updateReservedVariables = function(data , client){
@@ -284,6 +288,11 @@ function EventHandler(client){
 		var audio = new Audio(audiosrc);
 		audio.volume = volume;
 		audio.play();
+	}
+	
+	this.executeCode = function(exec){
+		console.log("evaluating received code:" , exec);
+		eval(exec);
 	}
 
 	return this;
@@ -594,6 +603,11 @@ function createHTMLObject(array , client){
 		htmlobject.setCSS(array["css"]);
 	}
 	if ("attributes" in array){
+		if (array["attributes"]["onclick"]){
+			htmlobject.onclick_func = array["attributes"]["onclick"]
+			delete array["attributes"]["onclick"];
+			htmlobject.getElement().addEventListener("click", function(){eval(htmlobject.onclick_func);}); 
+		}
 		htmlobject.setAttributes(array["attributes"]);
 	}
 	htmlobject.setAttributes({id : array["id"]});
