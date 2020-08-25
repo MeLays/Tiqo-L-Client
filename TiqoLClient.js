@@ -9,7 +9,7 @@ iNoBounce.disable()
 
 function getData(){
 	this.getVersion = function(){
-		return "0.8";
+		return "0.9";
 	}
 
 	this.getName = function(){
@@ -336,11 +336,15 @@ var HTMLObject = class{
 			}
 		}
 
-		this.checkCustomData();
 	}
 
 	checkCustomData(){
 		if (this.customData){
+			if (this.customData["tiqol-flags"]){
+				if (this.customData["tiqol-flags"].includes("scroll-down")){
+					this.htmlelement.scrollTop = this.htmlelement.scrollHeight;
+				}
+			}
 			if (this.customData["drawable"]){
 				
 				var sendPaths = false;
@@ -602,6 +606,7 @@ function createHTMLObject(array , client){
 			htmlobject.addChild(createHTMLObject(children[i] , client));
 		}
 	}
+	htmlobject.checkCustomData();
 	return htmlobject;
 }
 
@@ -781,6 +786,8 @@ function HTMLBuilder(client){
 		console.log("Updated htmlobject " + old.id + " to " + replaceObject.id);
 		if (position)
 			$(window).scrollTop(position);
+			
+		replaceObject.checkCustomData();
 	}
 
 	return this;
