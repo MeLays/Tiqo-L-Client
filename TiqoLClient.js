@@ -4,12 +4,12 @@
 iNoBounce.disable()
 
 /**
- * TiqoL Client JavaScript 1.1 version by m-3.me
+ * TiqoL Client JavaScript 1.2 version by m-3.me
  */
 
 function getData(){
 	this.getVersion = function(){
-		return "1.1";
+		return "1.2";
 	}
 
 	this.getName = function(){
