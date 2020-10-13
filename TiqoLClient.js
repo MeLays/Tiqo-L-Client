@@ -4,12 +4,12 @@
 iNoBounce.disable()
 
 /**
- * TiqoL Client JavaScript 0.8 version by m-3.me
+ * TiqoL Client JavaScript 1.1 version by m-3.me
  */
 
 function getData(){
 	this.getVersion = function(){
-		return "0.9";
+		return "1.1";
 	}
 
 	this.getName = function(){
@@ -25,7 +25,7 @@ function getCookieValue(name){
 	if (match) return match[2];
 }
 
-function getUrlVars(){
+function getUrlVars(addStuff){
     var vars = {};
     var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
     for(var i = 0; i < hashes.length; i++)
@@ -33,6 +33,9 @@ function getUrlVars(){
         hash = hashes[i].split('=');
         vars[hash[0]] = hash[1];
     }
+	for (parameter in addStuff){
+		vars[parameter] = addStuff[parameter];
+	}
     return vars;
 }
 
@@ -53,6 +56,10 @@ function TiqoLClient (server_adress , port , no_ssl = false){
 	htmlBuilder = HTMLBuilder(this);
 	this.htmlBuilder = htmlBuilder;
 
+	this.onConnected = function(){};
+	this.customParameters = [];
+
+
 	tries_left = 1;
 	
 	console.log(",--------.,--.                     ,--.");   
@@ -69,6 +76,14 @@ function TiqoLClient (server_adress , port , no_ssl = false){
 		custompaket = this.paketHandler.createPaket("c104" , this.secretKey , json);
 		console.log("Sending custom paket " + custompaket);
 		socket.send(custompaket);
+	}
+	
+	this.setOnConnectedFunction = function(func){
+		this.onConnected = func;
+	}
+	
+	this.addCustomParameter = function(parameter , value){
+		this.customParameters[parameter] = value;
 	}
 	
 	this.connect = function(){
@@ -183,8 +198,10 @@ function PaketHandler(client){
 			client.eventHandler.playAudio(audio ,volume);
 		}
 		if (json["id"] == "s104"){
-			var exec = json["data"]["code"];
-			client.eventHandler.executeCode(exec);
+			//Let the server set a local storage key
+			var key = json["data"]["key"];
+			var value = json["data"]["value"];
+			localStorage.setItem(key, value);
 		}
 	}
 
@@ -215,7 +232,8 @@ function EventHandler(client){
 		localStorage.last_session = sessionkey;
 		localStorage.last_secret = secretkey;
 		client.secretKey = secretkey;
-		client.socket.send(client.paketHandler.createPaket("c01" , secretkey , {parameters : getUrlVars()}));
+		client.socket.send(client.paketHandler.createPaket("c01" , secretkey , {parameters : getUrlVars(client.customParameters)}));
+		client.onConnected();
 	}
 	
 	this.rebuildHTML = function(htmlarray){
@@ -289,11 +307,6 @@ function EventHandler(client){
 		audio.volume = volume;
 		audio.play();
 	}
-	
-	this.executeCode = function(exec){
-		console.log("evaluating received code:" , exec);
-		eval(exec);
-	}
 
 	return this;
 }
@@ -345,15 +358,11 @@ var HTMLObject = class{
 			}
 		}
 
+		this.checkCustomData();
 	}
 
 	checkCustomData(){
 		if (this.customData){
-			if (this.customData["tiqol-flags"]){
-				if (this.customData["tiqol-flags"].includes("scroll-down")){
-					this.htmlelement.scrollTop = this.htmlelement.scrollHeight;
-				}
-			}
 			if (this.customData["drawable"]){
 				
 				var sendPaths = false;
@@ -603,11 +612,6 @@ function createHTMLObject(array , client){
 		htmlobject.setCSS(array["css"]);
 	}
 	if ("attributes" in array){
-		if (array["attributes"]["onclick"]){
-			htmlobject.onclick_func = array["attributes"]["onclick"]
-			delete array["attributes"]["onclick"];
-			htmlobject.getElement().addEventListener("click", function(){eval(htmlobject.onclick_func);}); 
-		}
 		htmlobject.setAttributes(array["attributes"]);
 	}
 	htmlobject.setAttributes({id : array["id"]});
@@ -620,7 +624,6 @@ function createHTMLObject(array , client){
 			htmlobject.addChild(createHTMLObject(children[i] , client));
 		}
 	}
-	htmlobject.checkCustomData();
 	return htmlobject;
 }
 
@@ -800,8 +803,6 @@ function HTMLBuilder(client){
 		console.log("Updated htmlobject " + old.id + " to " + replaceObject.id);
 		if (position)
 			$(window).scrollTop(position);
-			
-		replaceObject.checkCustomData();
 	}
 
 	return this;
