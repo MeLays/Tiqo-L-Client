@@ -25,15 +25,18 @@ function getCookieValue(name){
 	if (match) return match[2];
 }
 
-function getUrlVars(){
-    var vars = {};
-    var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
-    for(var i = 0; i < hashes.length; i++)
-    {
-        hash = hashes[i].split('=');
-        vars[hash[0]] = hash[1];
-    }
-    return vars;
+function getUrlVars(addStuff){	
+	var vars = {};	
+	var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');	
+	for(var i = 0; i < hashes.length; i++)	
+	{	
+		hash = hashes[i].split('=');	
+		vars[hash[0]] = hash[1];	
+	}	
+	for (parameter in addStuff){	
+		vars[parameter] = addStuff[parameter];	
+	}	
+	return vars;	
 }
 
 function TiqoLClient (server_adress , port , no_ssl = false){
@@ -52,6 +55,9 @@ function TiqoLClient (server_adress , port , no_ssl = false){
 	
 	htmlBuilder = HTMLBuilder(this);
 	this.htmlBuilder = htmlBuilder;
+		
+	this.onConnected = function(){};	
+	this.customParameters = [];	
 
 	tries_left = 1;
 	
@@ -69,6 +75,14 @@ function TiqoLClient (server_adress , port , no_ssl = false){
 		custompaket = this.paketHandler.createPaket("c104" , this.secretKey , json);
 		console.log("Sending custom paket " + custompaket);
 		socket.send(custompaket);
+	}
+	
+	this.setOnConnectedFunction = function(func){
+		this.onConnected = func;
+	}
+	
+	this.addCustomParameter = function(parameter , value){
+		this.customParameters[parameter] = value;
 	}
 	
 	this.connect = function(){
@@ -221,7 +235,8 @@ function EventHandler(client){
 		localStorage.last_session = sessionkey;
 		localStorage.last_secret = secretkey;
 		client.secretKey = secretkey;
-		client.socket.send(client.paketHandler.createPaket("c01" , secretkey , {parameters : getUrlVars()}));
+		client.socket.send(client.paketHandler.createPaket("c01" , secretkey , {parameters : getUrlVars(client.customParameters)}));	
+		client.onConnected();
 	}
 	
 	this.rebuildHTML = function(htmlarray){
